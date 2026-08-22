@@ -3,12 +3,26 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 NOW_MS = int(time.time() * 1000)
-UA = {"User-Agent": "CodexTrendScanner/1.0"}
+UA = {"User-Agent": "CodexTrendScanner/1.0"}\nBINANCE_BASES = ("https://data-api.binance.vision", "https://api.binance.com")
 
 def get_json(url, timeout=20):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.load(r)
+    error=None
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.load(r)
+        except Exception as exc:
+            error=exc
+            if attempt<2: time.sleep(2**attempt)
+    raise error
+
+def binance_json(path):
+    error=None
+    for base in BINANCE_BASES:
+        try: return get_json(base+path)
+        except Exception as exc: error=exc
+    raise error
 
 def ema(values, n):
     a = 2 / (n + 1); out = [values[0]]
@@ -24,7 +38,7 @@ def atr(rows, n=14):
 
 def klines(symbol, interval, limit):
     q=urllib.parse.urlencode({"symbol":symbol,"interval":interval,"limit":limit})
-    raw=get_json("https://api.binance.com/api/v3/klines?"+q)
+    raw=binance_json("/api/v3/klines?"+q)
     return [[int(x[0]),float(x[1]),float(x[2]),float(x[3]),float(x[4]),float(x[5]),int(x[6])] for x in raw if int(x[6]) <= NOW_MS]
 
 STABLE={"usdt","usdc","dai","usde","fdusd","tusd","usds","pyusd","usdd","frax","susds","usdtb","usdx","rlusd","gusd","lusd","crvusd"}
@@ -87,7 +101,7 @@ def scan_one(item, symbols):
     except Exception as e: return {"status":"error","error":type(e).__name__}
 
 def main():
-    uni=universe(); info=get_json("https://api.binance.com/api/v3/exchangeInfo")
+    uni=universe(); info=binance_json("/api/v3/exchangeInfo")
     symbols={x["symbol"] for x in info["symbols"] if x["status"]=="TRADING"}
     with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
         results=list(ex.map(lambda x:scan_one(x,symbols),uni))
