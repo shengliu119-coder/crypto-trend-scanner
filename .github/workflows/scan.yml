@@ -2,6 +2,12 @@ name: Scan crypto trend setups
 
 on:
   workflow_dispatch:
+    inputs:
+      test_feishu:
+        description: "Send a Feishu connection test before scanning"
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: "17 0,4,8,12,16,20 * * *"
 
@@ -27,6 +33,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Verify Feishu connection
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_feishu }}
+        run: |
+          test -n "$FEISHU_TREND_WEBHOOK"
+          response=$(curl --fail-with-body --silent --show-error             -X POST "$FEISHU_TREND_WEBHOOK"             -H "Content-Type: application/json; charset=utf-8"             --data '{"msg_type":"text","content":{"text":"✅ GitHub 云端加密趋势扫描器已成功连接飞书。"}}')
+          echo "$response" | python -c "import json,sys; r=json.load(sys.stdin); assert r.get('code') == 0, r"
 
       - name: Run top-300 scan
         run: python scanner.py
