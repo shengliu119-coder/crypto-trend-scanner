@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 NOW_MS = int(time.time() * 1000)
-UA = {"User-Agent": "CodexTrendScanner/1.0"}\nBINANCE_BASES = ("https://data-api.binance.vision", "https://api.binance.com")
+UA = {"User-Agent": "CodexTrendScanner/1.0"}\nOKX_BASES = ("https://www.okx.com", "https://app.okx.com")
 
 def get_json(url, timeout=20):
     error=None
@@ -17,10 +17,13 @@ def get_json(url, timeout=20):
             if attempt<2: time.sleep(2**attempt)
     raise error
 
-def binance_json(path):
+def okx_json(path):
     error=None
-    for base in BINANCE_BASES:
-        try: return get_json(base+path)
+    for base in OKX_BASES:
+        try:
+            payload=get_json(base+path)
+            if payload.get("code") != "0": raise RuntimeError(payload.get("msg") or payload.get("code"))
+            return payload["data"]
         except Exception as exc: error=exc
     raise error
 
@@ -37,9 +40,12 @@ def atr(rows, n=14):
     return ema(tr,n)
 
 def klines(symbol, interval, limit):
-    q=urllib.parse.urlencode({"symbol":symbol,"interval":interval,"limit":limit})
-    raw=binance_json("/api/v3/klines?"+q)
-    return [[int(x[0]),float(x[1]),float(x[2]),float(x[3]),float(x[4]),float(x[5]),int(x[6])] for x in raw if int(x[6]) <= NOW_MS]
+    bar="1Dutc" if interval=="1d" else "4H"
+    q=urllib.parse.urlencode({"instId":symbol,"bar":bar,"limit":min(limit,300)})
+    raw=okx_json("/api/v5/market/candles?"+q)
+    span=86400000 if interval=="1d" else 14400000
+    rows=[[int(x[0]),float(x[1]),float(x[2]),float(x[3]),float(x[4]),float(x[5]),int(x[0])+span-1] for x in raw if x[8]=="1"]
+    return sorted(rows,key=lambda x:x[0])
 
 STABLE={"usdt","usdc","dai","usde","fdusd","tusd","usds","pyusd","usdd","frax","susds","usdtb","usdx","rlusd","gusd","lusd","crvusd"}
 WRAP_WORDS=("wrapped ","bridged ","staked ","restaked ")
@@ -57,7 +63,7 @@ def universe():
     return out
 
 def scan_one(item, symbols):
-    c=item; pair=c["symbol"].upper()+"USDT"
+    c=item; pair=c["symbol"].upper()+"-USDT"
     if pair not in symbols: return {"status":"no_pair"}
     try:
         h4=klines(pair,"4h",140); d1=klines(pair,"1d",140)
@@ -101,8 +107,8 @@ def scan_one(item, symbols):
     except Exception as e: return {"status":"error","error":type(e).__name__}
 
 def main():
-    uni=universe(); info=binance_json("/api/v3/exchangeInfo")
-    symbols={x["symbol"] for x in info["symbols"] if x["status"]=="TRADING"}
+    uni=universe(); info=okx_json("/api/v5/public/instruments?instType=SPOT")
+    symbols={x["instId"] for x in info if x.get("state")=="live" and x.get("quoteCcy")=="USDT"}
     with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
         results=list(ex.map(lambda x:scan_one(x,symbols),uni))
     covered=[x for x in results if x.get("status")=="ok"]
