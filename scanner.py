@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.5 seconds
-Output:
 import concurrent.futures, json, math, os, statistics, time, urllib.parse, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
