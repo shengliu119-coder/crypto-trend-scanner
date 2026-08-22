@@ -3,7 +3,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 NOW_MS = int(time.time() * 1000)
-UA = {"User-Agent": "CodexTrendScanner/1.0"}\nOKX_BASES = ("https://www.okx.com", "https://app.okx.com")
+UA = {"User-Agent": "CodexTrendScanner/1.0"}
+OKX_BASES = ("https://www.okx.com", "https://app.okx.com")
 
 def get_json(url, timeout=20):
     error=None
