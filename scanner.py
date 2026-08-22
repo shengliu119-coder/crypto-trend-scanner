@@ -102,11 +102,10 @@ def main():
     Path("latest_results.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     state_path=Path("state.json")
     state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"sent":[]}
-    sent=set(state.get("sent",[])); fresh=[]
+    sent=set(state.get("sent",[])); fresh=[]; fresh_keys=[]
     for x in report["hits"]:
         m=x["metrics"]; key=f'{x["symbol"]}:{m["signalType"]}:{m["breakout"]:.12g}'
-        if key not in sent: fresh.append(x); sent.add(key)
-    state_path.write_text(json.dumps({"sent":list(sent)[-500:]},ensure_ascii=False,indent=2),encoding="utf-8")
+        if key not in sent: fresh.append(x); fresh_keys.append(key)
     hook=os.getenv("FEISHU_TREND_WEBHOOK","").strip()
     if fresh and hook:
         lines=[f'加密趋势扫描｜{report["generatedAt"]}',f'新增信号 {len(fresh)} 个：']
@@ -118,8 +117,10 @@ def main():
         with urllib.request.urlopen(req,timeout=20) as resp:
             body=json.load(resp)
         if body.get("code")!=0: raise RuntimeError(f'Feishu rejected message: {body.get("code")} {body.get("msg")}')
+        sent.update(fresh_keys)
     elif fresh and not hook:
         print("WARNING: fresh signals found but FEISHU_TREND_WEBHOOK is not configured")
+    state_path.write_text(json.dumps({"sent":list(sent)[-500:]},ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
 
 if __name__=="__main__": main()
