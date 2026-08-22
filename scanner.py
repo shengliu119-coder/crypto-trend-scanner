@@ -1,6 +1,7 @@
 import concurrent.futures, json, math, os, statistics, time, urllib.parse, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 NOW_MS = int(time.time() * 1000)
 UA = {"User-Agent": "CodexTrendScanner/1.0"}
@@ -126,11 +127,28 @@ def main():
         if key not in sent: fresh.append(x); fresh_keys.append(key)
     hook=os.getenv("FEISHU_TREND_WEBHOOK","").strip()
     if fresh and hook:
-        lines=[f'加密趋势扫描｜{report["generatedAt"]}',f'新增信号 {len(fresh)} 个：']
-        for x in fresh:
+        beijing=datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M")
+        btc=report.get("btc") or {}; btc_text="多头背景" if btc.get("trend") else "非多头/数据不足"
+        grades=["A" if x["metrics"]["score"]>=90 else "B" for x in fresh]
+        title=f'🚨 趋势扫描｜{grades.count("A")}个A级 · {grades.count("B")}个B级'
+        blocks=[[{"tag":"text","text":f'🕒 北京时间：{beijing}  ｜  BTC：{btc_text}'}],
+                [{"tag":"text","text":"仅为已收盘K线筛选候选，不是追价通知。"}]]
+        labels={"breakout":"放量突破","first_pullback":"首次回踩确认"}
+        for i,x in enumerate(fresh,1):
             m=x["metrics"]; grade="A" if m["score"]>=90 else "B"
-            lines.append(f'{grade} {x["symbol"]}（市值#{x["rank"]}） {m["signalType"]}｜收盘 {x["price"]:.8g}｜突破 {m["breakout"]:.8g}｜失效 {m["stop"]:.8g}｜风险 {m["riskPct"]:.1f}%｜阻力 {m["resistance"]:.8g}｜R {m["rr"]:.1f}｜量 {m["volumeMultiple"]:.1f}x')
-        payload=json.dumps({"msg_type":"text","content":{"text":"\n".join(lines)}},ensure_ascii=False).encode("utf-8")
+            offset=(x["price"]/m["breakout"]-1)*100 if m["breakout"] else 0
+            blocks.extend([
+                [{"tag":"text","text":"━━━━━━━━━━━━━━━━"}],
+                [{"tag":"text","text":f'{i}. 🟢 {x["symbol"]}  ｜  {grade}级  ｜  市值 #{x["rank"]}'}],
+                [{"tag":"text","text":f'📌 信号：{labels.get(m["signalType"],m["signalType"])}'}],
+                [{"tag":"text","text":f'💰 确认收盘：{x["price"]:.8g}  （距突破位 {offset:+.1f}%）'}],
+                [{"tag":"text","text":f'🔑 突破/回踩位：{m["breakout"]:.8g}'}],
+                [{"tag":"text","text":f'🛡️ 结构失效位：{m["stop"]:.8g}  ｜  风险 {m["riskPct"]:.1f}%'}],
+                [{"tag":"text","text":f'🎯 第一阻力：{m["resistance"]:.8g}  ｜  预估 {m["rr"]:.1f}R'}],
+                [{"tag":"text","text":f'📊 突破量能：{m["volumeMultiple"]:.1f}倍均量  ｜  评分 {m["score"]:.0f}'}]
+            ])
+        post={"zh_cn":{"title":title,"content":blocks}}
+        payload=json.dumps({"msg_type":"post","content":{"post":post}},ensure_ascii=False).encode("utf-8")
         req=urllib.request.Request(hook,data=payload,headers={"Content-Type":"application/json; charset=utf-8"},method="POST")
         with urllib.request.urlopen(req,timeout=20) as resp:
             body=json.load(resp)
@@ -142,4 +160,3 @@ def main():
     print(json.dumps(report,ensure_ascii=False))
 
 if __name__=="__main__": main()
-
