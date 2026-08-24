@@ -1,10 +1,10 @@
 {
   "sent": [
-    "MORPHO:first_pullback:2.7479",
-    "LIT:first_pullback:2.9724",
-    "ETHFI:first_pullback:0.6361",
     "MORPHO:first_pullback:2.4",
     "OKB:first_pullback:109.68",
+    "LIT:first_pullback:2.9724",
+    "MORPHO:first_pullback:2.7479",
+    "ETHFI:first_pullback:0.6361",
     "DGB:first_pullback:0.00457",
     "POL:first_pullback:0.10568"
   ]
