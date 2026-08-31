@@ -1,14 +1,14 @@
 {
   "sent": [
+    "POL:first_pullback:0.10568",
+    "ETHFI:first_pullback:0.6361",
+    "CVX:first_pullback:2.314",
+    "OKB:first_pullback:109.68",
+    "LIT:first_pullback:2.9724",
+    "DGB:first_pullback:0.00457",
+    "MORPHO:first_pullback:2.7479",
     "SOL:first_pullback:105.81",
     "MORPHO:first_pullback:2.4",
-    "UNI:first_pullback:4.842",
-    "DGB:first_pullback:0.00457",
-    "LIT:first_pullback:2.9724",
-    "MORPHO:first_pullback:2.7479",
-    "OKB:first_pullback:109.68",
-    "CVX:first_pullback:2.314",
-    "ETHFI:first_pullback:0.6361",
-    "POL:first_pullback:0.10568"
+    "UNI:first_pullback:4.842"
   ]
 }
